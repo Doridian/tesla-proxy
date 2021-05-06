@@ -7,6 +7,7 @@ interface TeslaJSTokenData {
 }
 
 let authData: TeslaJSTokenData | undefined;
+let loginDone: boolean = false;
 let vehicles: tjs.Vehicle[];
 
 function addAuthToRequest(opt: Partial<tjs.optionsType> = {}): tjs.optionsType {
@@ -17,7 +18,12 @@ function addAuthToRequest(opt: Partial<tjs.optionsType> = {}): tjs.optionsType {
 async function postLogin() {
     await saveAuthData();
     vehicles = Object.values(await tjs.vehiclesAsync(addAuthToRequest())) as tjs.Vehicle[];
+    loginDone = true;
     console.log(vehicles);
+}
+
+export function getVehicles() {
+    return vehicles;
 }
 
 async function saveAuthData() {
@@ -44,4 +50,8 @@ export async function tryLogin(data: tjs.LoginOptions) {
 
 export async function runRequest(request: string, opts?: Partial<tjs.optionsType>) {
     return await (tjs as any)[`${request}Async`](addAuthToRequest(opts));
+}
+
+export function isLoggedIn() {
+    return loginDone;
 }

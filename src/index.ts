@@ -1,3 +1,4 @@
+import { startHTTP } from "./http";
 import { tryReLogin } from "./tesla";
 
 async function main() {
@@ -6,6 +7,7 @@ async function main() {
     } catch(e) {
         console.error("Error on ReLogin", e);
     }
+    startHTTP();
 }
 
 main().catch(e => console.error(e));
