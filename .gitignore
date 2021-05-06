@@ -1,0 +1,4 @@
+/config
+!/config/.keep
+/dist
+node_modules

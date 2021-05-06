@@ -1,0 +1,11 @@
+{
+    "defaultSeverity": "error",
+    "extends": [
+        "tslint:latest"
+    ],
+    "rules": {
+        "no-bitwise": false,
+        "no-unsafe-any": true,
+        "no-any": true
+    }
+}
