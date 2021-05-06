@@ -7,6 +7,9 @@ async function main() {
     } catch(e) {
         console.error("Error on ReLogin", e);
     }
+
+    console.log('ReLogin to Tesla API complete. Starting HTTP listener...');
+
     startHTTP();
 }
 

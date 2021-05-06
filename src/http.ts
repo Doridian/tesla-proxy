@@ -27,7 +27,8 @@ async function handleRequest(url: URL, method: string, bodyRaw: string): Promise
     if (routeName === 'POST /v1/login') {
         try {
             await tryLogin(body);
-        } catch {
+        } catch (e) {
+            console.error('Error logging into Tesla API', e);
             return simpleError(400, 'Error logging into Tesla API');
         }
         return simpleBody('Logged into Tesla API');
