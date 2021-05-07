@@ -71,13 +71,13 @@ async function handleRequest(url: URL, method: string, bodyRaw: string): Promise
                 return simpleBody(getVehicles());
             }
 
-            if (!routeSplit[3]) {
-                requireMethod(method, 'GET');
-                return simpleBody({});
-            }
-
             const vehicleID = routeSplit[2];
             const baseRequestData = addAuthToRequest({ vehicleID });
+
+            if (!routeSplit[3]) {
+                requireMethod(method, 'GET');
+                return simpleBody(await tjs.vehicleAsync(baseRequestData));
+            }
 
             switch (routeSplit[3]) {
                 case 'climate':
