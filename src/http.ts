@@ -112,6 +112,7 @@ async function handleRequest(url: URL, method: string, bodyRaw: string): Promise
 
                 case 'charging':
                     if (!routeSplit[4]) {
+                        requireMethod(method, 'GET');
                         return simpleBody(await tjs.chargeStateAsync(baseRequestData));
                     }
                     
