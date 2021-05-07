@@ -1,18 +1,41 @@
+import * as tjs from "teslajs";
 import { createServer } from 'http';
 import { URL } from 'url';
-import { getVehicles, isLoggedIn, tryLogin } from './tesla';
+import { addAuthToRequest, getVehicles, isLoggedIn, tryLogin } from './tesla';
 
 interface SimpleResponse {
     body?: unknown;
     statusCode:  number;
 }
 
-function simpleError(statusCode: number, error: string) {
-    return { statusCode, body: { error } };
+class HTTPError extends Error {
+    constructor(public code: number, public error: string) {
+        super();
+    }
 }
 
 function simpleBody(body: unknown) {
     return { statusCode: 200, body };
+}
+
+function requireLogin() {
+    if (!isLoggedIn()) {
+        throw new HTTPError(400, 'Not logged into Tesla API');
+    }
+}
+
+/*
+function requireMethods(method: string, neededMethods: Set<string>) {
+    if (!neededMethods.has(method)) {
+        throw new HTTPError(405, `Invalid method, needs one of: ${[...neededMethods].join(', ')}`);
+    }
+}
+*/
+
+function requireMethod(method: string, neededMethod: string) {
+    if (neededMethod !== method) {
+        throw new HTTPError(405, `Invalid method, needs: ${neededMethod}`);
+    }
 }
 
 async function handleRequest(url: URL, method: string, bodyRaw: string): Promise<SimpleResponse> {
@@ -20,30 +43,64 @@ async function handleRequest(url: URL, method: string, bodyRaw: string): Promise
     try {
         body = (bodyRaw.length > 0) ? JSON.parse(bodyRaw) : undefined;
     } catch {
-        return simpleError(400, 'Invalid JSON body');
+        throw new HTTPError(400, 'Invalid JSON in body');
     }
 
-    const routeName = `${method.toUpperCase()} ${url.pathname}`;
-    if (routeName === 'POST /v1/login') {
-        try {
-            await tryLogin(body);
-        } catch (e) {
-            console.error('Error logging into Tesla API', e);
-            return simpleError(400, 'Error logging into Tesla API');
-        }
-        return simpleBody('Logged into Tesla API');
+    method = method.toUpperCase();
+    const routeSplit = url.pathname.substr(1).split('/');
+    if (routeSplit[0] !== 'v1') {
+        throw new HTTPError(404, 'Invalid API version, supported: v1');
     }
 
-    if (!isLoggedIn()) {
-        return simpleError(400, 'Not logged into Tesla API');
+    switch (routeSplit[1]) {
+        case 'login':
+            requireMethod(method, 'POST');
+            try {
+                await tryLogin(body);
+            } catch (e) {
+                console.error('Error logging into Tesla API', e);
+                throw new HTTPError(400, 'Error logging into Tesla API');
+            }
+            return simpleBody('Logged into Tesla API');
+
+        case 'vehicle':
+            requireLogin();
+    
+            if (!routeSplit[2]) {
+                requireMethod(method, 'GET');
+                return simpleBody(getVehicles());
+            }
+
+            if (!routeSplit[3]) {
+                requireMethod(method, 'GET');
+                return simpleBody({});
+            }
+
+            const vehicleID = routeSplit[2];
+            const baseRequestData = addAuthToRequest({ vehicleID });
+
+            switch (routeSplit[3]) {
+                case 'climate':
+                    if (!routeSplit[4]) {
+                        requireMethod(method, 'GET');
+                        return simpleBody(await tjs.climateStateAsync(baseRequestData)); 
+                    }
+
+                    requireMethod(method, 'POST');
+                    switch (routeSplit[4]) {
+                        case 'on':
+                        case 'start':
+                            return simpleBody(await tjs.climateStartAsync(baseRequestData));
+                        case 'off':
+                        case 'stop':
+                            return simpleBody(await tjs.climateStopAsync(baseRequestData));
+                    }
+            }
+            break;
     }
 
-    switch (routeName) {
-        case 'GET /v1/vehicles':
-            return simpleBody(getVehicles());
-    }
-
-    return simpleError(404, 'Route not found');
+    
+    throw new HTTPError(404, 'Route not found');
 }
 
 export function startHTTP() {
@@ -64,6 +121,12 @@ export function startHTTP() {
                 }
                 res.end();
             }, (e) => {
+                if (e instanceof HTTPError) {
+                    res.writeHead(e.code);
+                    res.write(JSON.stringify({ error: e.error }));
+                    res.end();
+                    return;
+                }
                 res.writeHead(500);
                 res.end();
                 console.error(e);
