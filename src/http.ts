@@ -80,6 +80,10 @@ async function handleRequest(url: URL, method: string, bodyRaw: string): Promise
             }
 
             switch (routeSplit[3]) {
+                case 'wakeup':
+                    requireMethod(method, 'POST');
+                    return simpleBody(await tjs.wakeUpAsync(baseRequestData));
+
                 case 'climate':
                     if (!routeSplit[4]) {
                         requireMethod(method, 'GET');
@@ -95,6 +99,43 @@ async function handleRequest(url: URL, method: string, bodyRaw: string): Promise
                         case 'stop':
                             return simpleBody(await tjs.climateStopAsync(baseRequestData));
                     }
+                    
+                case 'trunk':
+                case 'frunk':
+                    if (routeSplit[4] !== 'open') {
+                        throw new HTTPError(400, 'Needs POST /open');
+                    }
+
+                    requireMethod(method, 'POST');
+
+                    return simpleBody(await tjs.openTrunkAsync(baseRequestData, (routeSplit[3] === 'frunk') ? tjs.FRUNK : tjs.TRUNK));
+
+                case 'charging':
+                    if (!routeSplit[4]) {
+                        return simpleBody(await tjs.chargeStateAsync(baseRequestData));
+                    }
+                    
+                    requireMethod(method, 'POST');
+
+                    switch (routeSplit[4]) {
+                        case 'open':
+                        case 'unlock':
+                            return simpleBody(await tjs.openChargePortAsync(baseRequestData));
+                        
+                        case 'start':
+                            return simpleBody(await tjs.startChargeAsync(baseRequestData));
+
+                        case 'stop':
+                            return simpleBody(await tjs.stopChargeAsync(baseRequestData));
+
+                        case 'limit':
+                            if (!body.set) {
+                                throw new HTTPError(400, 'Missing "set"');
+                            }
+
+                            return simpleBody(await tjs.setChargeLimitAsync(baseRequestData, body.set));
+                    }
+                    break;
             }
             break;
     }
